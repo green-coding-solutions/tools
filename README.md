@@ -21,3 +21,55 @@ This script will trigger same logic as the `cpu_relax()` function in the linux k
 
 Originally designed for spin-locks this function can set the processor cycling on 
 the lowest power instruction without loosing control of it (C-State, scheduling etc.)
+
+### DVFS ON / OFF
+
+This script will change the cpu frequency govenor in the linux system.
+
+Currently it will just switch from **schedutil** to **performance**.
+
+The possible govenors you can find in:
+`/sys/devices/system/cpu/cpuX/cpufreq/scaling_available_governors`
+
+### Read CPU sysbench
+
+In order for this script to work paranoid level should be set to 0:
+
+`sudo sysctl -w kernel.perf_event_paranoid=0`
+
+If you run multiple *perf_events* instances it may happen that the counters get multiplexed.
+
+This is indicated by having the percentage icon next to the statistics. This 
+is then an approximation of the real count.
+
+
+### noop / pause
+
+The *nop* instruction is the typical "do nothing" instruction in the x86 instruction set.
+
+However Intel introduced also the *pause* instruction which should be used preferrably
+when having the CPU in a spin-lock state. 
+This instruction will hint the processor that a spin-lock is happening and 
+can prevent memory violations and in turn save energy.
+
+In order to create this code you should compile the `empty_loop.c` with: 
+`gcc -S empty_loop.c` option. 
+This will create an assembler file and you have to inject the `nop`/`pause` 
+statements at the correct line.
+
+We have included sample `*.s` files to showcase that. However they might not compile 
+directly on your system and should just serve as an example.
+
+Once you have compiled your own `*.s` file create the executable via: `gcc nop.s`
+
+On our test machine the energy difference is the following:
+- sudo perf stat -a -e power/energy-pkg/ --timeout 10000 sleep 20
+    + 21.80 Joules
+- sudo perf stat -a -e power/energy-pkg/ ./nop
+    + 87.37 Joules
+    + 89.07 Joules
+    + 86.97 Joules
+- sudo perf stat -a -e power/energy-pkg/ --timeout 10000 ./pause
+    + 88.05 Joules
+    + 89.79 Joules
+    + 88.51 Joules
