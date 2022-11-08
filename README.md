@@ -22,14 +22,16 @@ This script will trigger same logic as the `cpu_relax()` function in the linux k
 Originally designed for spin-locks this function can set the processor cycling on 
 the lowest power instruction without loosing control of it (C-State, scheduling etc.)
 
-### DVFS ON / OFF
+### DVFS
 
 This script will change the cpu frequency govenor in the linux system.
 
-Currently it will just switch from **schedutil** to **performance**.
+Currently it will just switch to **schedutil** / **performance** or **powersave**.
 
 The possible govenors you can find in:
 `/sys/devices/system/cpu/cpuX/cpufreq/scaling_available_governors`
+
+Check if the frequency was really changed by: `watch -d -n 1 "cat /proc/cpuinfo | grep MHz"`
 
 ### Read CPU sysbench
 
@@ -38,12 +40,18 @@ In order for this script to work paranoid level should be set to 0:
 `sudo sysctl -w kernel.perf_event_paranoid=0`
 
 If you run multiple *perf_events* instances it may happen that the counters get multiplexed.
+A warning will be issued in this case.
 
-This is indicated by having the percentage icon next to the statistics. This 
-is then an approximation of the real count.
+The script was designed to find out the deviation between time sharding and instruction sharding
+when the system background load or is idling.
 
+Currently we see the instruction share strongly deviationg from the time share of 
+a process when the system is loaded.
 
-### noop / pause
+Further research has to be done to conclude if one or the other metric is more helpful
+when trying to attribte cumulative metrics like energy to a process.
+
+### nop / pause
 
 The *nop* instruction is the typical "do nothing" instruction in the x86 instruction set.
 
@@ -73,3 +81,14 @@ On our test machine the energy difference is the following:
     + 88.05 Joules
     + 89.79 Joules
     + 88.51 Joules
+    
+#### Benchmarking an unknown CPU with the nop script
+
+If you want to find out if the CPU speed advertised in the `/proc/cpuinfo` is really
+accurate you can just run the `nop` script and time it.
+
+By dividing the runtime through the estimated instructions per cycle (either 3 or 4 on modern CPUs)
+you can find out if the CPU has the expected cycle count.
+
+The core should get fully loaded and burst to its maximum frequency as the script
+contains no sleeps.
