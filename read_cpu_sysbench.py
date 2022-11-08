@@ -9,6 +9,7 @@ import math
 
 def read_proc_stat():
     # Read /proc/stat file (for first datapoint)
+    # psutil already gives us the value in time, not jiffies.
     reading = psutil.cpu_times()
 
     if reading.steal > 0 or reading.guest > 0 or reading.guest_nice > 0:
@@ -64,7 +65,7 @@ def read_proc_pid_stat(pid):
     return reading_active, reading_total
 
 
-def main(duration, threads, metric, debug):
+def main(duration, threads, metric, debug, unsafe):
 
     print(f"Starting with {duration=} {threads=} {metric=} {debug=}")
 
@@ -141,7 +142,7 @@ def main(duration, threads, metric, debug):
         print('\033[0m') # end red color
         sys.exit(-1)
 
-    if(not math.isclose(total_time, duration+1, abs_tol=0.005)): # deviation up than 5 ms allowed
+    if(not unsafe and not math.isclose(total_time, duration+1, abs_tol=0.005)): # deviation up than 5 ms allowed
         print('\033[91m') # start red color
         print("\n----------------------------------------ERROR !!!!!!!!!!!!!!!!!! ----------------------------------------------------------")
         print(f"{total_time=} was more than 5 ms larger than maximum allowed duration of {duration+1=}")
@@ -150,7 +151,7 @@ def main(duration, threads, metric, debug):
         print("The reason for this guard clause is to maximize reproducibility and generality of the test")
         print('\033[0m') # end red color
         sys.exit(-1)
-    elif(not math.isclose(execution_time_avg, duration+1, abs_tol=0.01)): # deviation up than 10 ms allowed
+    elif(not unsafe and not math.isclose(execution_time_avg, duration+1, abs_tol=0.01)): # deviation up than 10 ms allowed
         print('\033[91m') # start red color
         print("\n----------------------------------------ERROR !!!!!!!!!!!!!!!!!! ----------------------------------------------------------")
         print(f"{execution_time_avg=} was more than 10 ms larger than maximum allowed duration of {duration+1=}")
@@ -169,29 +170,35 @@ def main(duration, threads, metric, debug):
 
         print(f"""
 ------------ PROCESS ------------------
-Total Wall Time: {total_time}s
-Active Jiffies: {pid_active}
-Total Jiffies: {pid_total}
-Total Events: {events}
+Total wall time: {total_time}s
+Active time: {pid_active} (Time the process was NOT waiting)
+Total time: {pid_total} (CPU + waiting time)
+Total events: {events}
 {metric}_pid={metric_pid:.6E}
-CPU % active: {100*(pid_active)/(cpu_active)}
-CPU % total: {100*(pid_total)/(cpu_total)}
+CPU % active share: {100*(pid_active)/(cpu_active):.4}
+-> (Share of time the process was calculating on the CPU vs. time the whole system was calculating on the CPU)
+CPU % total share: {100*(pid_total)/(cpu_total):.4}
+-> (Share of CPU+waiting time of the process vs. total time of the system)
 
 --------- SYSTEM --------------------
-Active Jiffies: {cpu_active}
-Total Jiffies: {cpu_total}
-CPU %: {100*(cpu_active)/(cpu_total)}
+Active time: {cpu_active}
+Total time: {cpu_total}
+CPU %: {100*(cpu_active)/(cpu_total):.4}
 {metric}_system={metric_system:.6E}
 {energy_system=} J
 
 ----------- DIFFERENT SPLITTING -------------------
-CPU % active Share : {100*(pid_active)/(cpu_active)}
-CPU % total Share: {100*(pid_total)/(cpu_total)}
-{metric} Share: {100*metric_pid/metric_system}
+CPU % active share: {100*(pid_active)/(cpu_active):.4} (explanation see top)
+CPU % total share: {100*(pid_total)/(cpu_total):.4} (explanation see top)
+{metric} Share: {100*metric_pid/metric_system:.4}
 
-Energy difference: {energy_diff} J ({energy_diff_rel*100} %)
+Energy difference: {energy_diff:.4} J ({100*energy_diff_rel:.4} %)
         """)
 
+    if unsafe:
+        print('\033[91m') # start red color
+        print("\nWarning: Code has been run with --unsafe flag and calculations might have high std.dev.")
+        print('\033[0m') # end red color
 
 if __name__ == "__main__":
     import argparse
@@ -203,6 +210,7 @@ if __name__ == "__main__":
     parser.add_argument("--duration", type=int, default=1, help="Time for the test in seconds")
     parser.add_argument("--threads", type=int, default=1, help="Amount of threads")
     parser.add_argument("--debug", action="store_true", help="Show debug output")
+    parser.add_argument("--unsafe", action="store_true", help="Do not run error checks")
     args = parser.parse_args()
 
-    main(args.duration, args.threads, args.metric, args.debug)
+    main(args.duration, args.threads, args.metric, args.debug, args.unsafe)
