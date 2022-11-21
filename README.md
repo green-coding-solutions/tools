@@ -32,9 +32,25 @@ We include a script that can check if the energy filtering switch has been set:
 
 `sudo check_energy_filtering_rapl.sh`
 
+#### Test SGX
+
 The other possible option when energy filtering kicks in is if **SGX** is activated
 in the BIOS. You don't have to have the SGX libraries installed ... just the BIOS
 switch suffices.
+
+To test wether SGX is activeuse 
+the following script:
+
+`gcc test-sgx.c && ./a.out`
+
+The relevat values to look at are:
+```bash
+sgx available: 0
+sgx launch control: 0
+```
+ONLY if both of them are 1, then SGX is active.
+
+**Credits:** This beautiful script has been copied from [@ayeks](https://github.com/ayeks/SGX-hardware)! Be sure to have a look at the repo!
 
 ### cpu_relax
 
