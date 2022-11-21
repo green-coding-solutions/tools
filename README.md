@@ -15,6 +15,27 @@ functionality for Intel Core i7 with Broadwell architecture.
 
 If our script will not work check out the correct register with Brendan Greggs script.
 
+### RAPL energy filtering
+
+The RAPL accuracy can be be lowered by either having SGX turned on OR by activating
+an option in Intel CPUs called "energy filtering".
+
+Source: [https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/advisory-guidance/running-average-power-limit-energy-reporting.html#ipu-2020.2](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/advisory-guidance/running-average-power-limit-energy-reporting.html#ipu-2020.2)
+
+What actually happens is that the energy information returned by RAPL is randomly modified
+and will be 0-50% different from the original signal.
+
+This is enough to still have a broad idea of what the total energy budget is but prevents
+energy side-channel attacks.
+
+We include a script that can check if the energy filtering switch has been set:
+
+`sudo check_energy_filtering_rapl.sh`
+
+The other possible option when energy filtering kicks in is if **SGX** is activated
+in the BIOS. You don't have to have the SGX libraries installed ... just the BIOS
+switch suffices.
+
 ### cpu_relax
 
 This script will trigger same logic as the `cpu_relax()` function in the linux kernel does.
