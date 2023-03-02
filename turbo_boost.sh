@@ -15,6 +15,8 @@ if [[ ! -z $1 && $1 != "enable" && $1 != "disable" ]]; then
 fi
 
 cores=$(cat /proc/cpuinfo | grep processor | awk '{print $3}')
+
+
 for core in $cores; do
     if [[ $1 == "disable" ]]; then
         sudo wrmsr -p${core} 0x1a0 0x4000850089
@@ -23,12 +25,33 @@ for core in $cores; do
         sudo wrmsr -p${core} 0x1a0 0x850089
     fi
     state=$(sudo rdmsr -p${core} 0x1a0 -f 38:38)
+    echo "core ${core}:"
     if [[ $state -eq 1 ]]; then
-        echo "core ${core}: disabled"
+        echo -e "\t TurboBoost (MSR): \t\t\t disabled"
     else
-        echo "core ${core}: enabled"
+        echo -e "\t TurboBoost (MSR): \t\t\t enabled"
     fi
+    echo -e "\t scaling_governor: \t\t\t" $(cat "/sys/devices/system/cpu/cpu${core}/cpufreq/scaling_governor")
+    echo -e "\t scaling_driver: \t\t\t" $(cat "/sys/devices/system/cpu/cpu${core}/cpufreq/scaling_driver")
+    echo -e "\t energy_performance_preference: \t" $(cat "/sys/devices/system/cpu/cpu${core}/cpufreq//energy_performance_preference")
+
 done
 
+echo "CPU-wide settings"
+echo -e "\t P_State status (off,active,passive): \t" $(cat "/sys/devices/system/cpu/intel_pstate/status")
+echo -e "\t P_State no_turbo (0=allowed,1=off): \t" $(cat "/sys/devices/system/cpu/intel_pstate/no_turbo")
+echo -e "\t P_State max-turbo (%): \t\t" $(cat "/sys/devices/system/cpu/intel_pstate/max_perf_pct")
 
-echo "Try sudo perf stat -a -e power/energy-pkg/,power/energy-ram/,power/energy-gpu/ python3 test_load_hash.py run -n 1000000"
+
+echo -e "\nAvailable drivers for CPU DVFS: "
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors
+
+echo -e "\nPlease be aware that the scaling_governors will change depending on which scaling_driver is active"
+echo "You can force changing the driver from the intel_pstate (default) to intel_cpufreq (legacy) by setting "
+echo "$ echo passive | sudo tee /sys/devices/system/cpu/intel_pstate/status"
+
+echo -e "\nThis is however only recommeded for testing, as this is not a real-world production setting"
+
+echo -e"\n\nTry stressing your system and look where turbo boost is going: "
+echo 'watch -n 0.5 "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"'
+echo "taskset 0x01 stress-ng -c 1"
