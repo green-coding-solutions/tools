@@ -48,6 +48,7 @@ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors
 
 echo -e "\nPlease be aware that the scaling_governors will change depending on which scaling_driver is active"
 echo "You can force changing the driver from the intel_pstate (default) to intel_cpufreq (legacy) by setting "
+echo "See further https://wiki.archlinux.org/title/CPU_frequency_scaling and https://www.kernel.org/doc/html/v5.17/admin-guide/pm/intel_pstate.html#user-space-interface-in-sysfs"
 echo "$ echo passive | sudo tee /sys/devices/system/cpu/intel_pstate/status"
 
 echo -e "\nThis is however only recommeded for testing, as this is not a real-world production setting"
