@@ -24,6 +24,8 @@ Usage examples:
       --email you@example.com \
       --filename usage_scenario.yml \
       --branch main \
+      --variables "__GMT_VAR_API_KEY=abc123" \
+      --variables "__GMT_VAR_DATABASE_URL=postgres://localhost"
 """
 
 from __future__ import annotations
@@ -223,6 +225,8 @@ def build_parser() -> argparse.ArgumentParser:
     s_sub.add_argument("--schedule-mode", dest="schedule_mode", required=True,
                        choices=sorted(VALID_SCHEDULE_MODES),
                        help="Measurement schedule mode.")
+    s_sub.add_argument("--variables", action="append", metavar="KEY=VALUE",
+                       help="Usage scenario variables (can be used multiple times).")
 
     return p
 
@@ -274,6 +278,15 @@ def main():
                 payload["filename"] = args.filename
             if args.branch:
                 payload["branch"] = args.branch
+            
+            if args.variables:
+                usage_scenario_variables = {}
+                for var in args.variables:
+                    if "=" in var:
+                        key, value = var.split("=", 1)
+                        usage_scenario_variables[key.strip()] = value.strip()
+                if usage_scenario_variables:
+                    payload["usage_scenario_variables"] = usage_scenario_variables
 
             resp = client.submit_software(payload)
             if args.json:
