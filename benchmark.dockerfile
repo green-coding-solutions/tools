@@ -18,4 +18,4 @@ WORKDIR /app
 COPY benchmark.sh /app/benchmark.sh
 RUN chmod +x /app/benchmark.sh
 
-CMD ["sleep", "infinity"]
+ENTRYPOINT ["./benchmark.sh"]
