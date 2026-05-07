@@ -160,7 +160,8 @@ trap 'echo "Aborted."; pkill -P $$; exit 1' INT
 
 phase() {
     echo
-    echo "== $1 =="
+    echo -en $(date +"%s%6N") "== $1 =="
+    echo
 }
 
 run_timeout() {
@@ -180,7 +181,8 @@ cpu_phase() {
     local workers=1
 
     while (( workers <= max_workers )); do
-        echo "Running with $workers CPU workers for ${DURATION}s"
+        echo -en $(date +"%s%6N") "Running with $workers CPU workers for ${DURATION}s"
+        echo
 
         stress-ng --cpu "$workers" --cpu-method matrixprod --timeout "${DURATION}s" --metrics-brief
 
@@ -214,7 +216,8 @@ disk_write_phase() {
 disk_read_phase() {
     phase "disk read"
     if [[ ! -f "$IO_FILE" ]]; then
-        echo "disk file missing; skipping read phase"
+        echo -en $(date +"%s%6N") "disk file missing; skipping read phase"
+        echo
         return
     fi
     local count=$((FILE_MB / 4))
@@ -232,9 +235,9 @@ net_phase() {
         run_timeout "${DURATION}s" bash -c "while :; do wget -q -O /dev/null '${NET_URL}'; done"
         return
     fi
+
     echo "curl/wget not found; Please install to run net phase of benchmark ..." >&2
     exit 1
-
 }
 
 idle_phase() {
@@ -242,19 +245,27 @@ idle_phase() {
     sleep "${DURATION}"
 }
 
-
 wakeups_phase() {
     phase "wakeups"
-    stress-ng --switch "$WAKEUP_THREADS" --timeout "${DURATION}s" --metrics-brief
+
+    stress-ng \
+        --switch "$WAKEUP_THREADS" \
+        --timeout "${DURATION}s" \
+        --metrics-brief
 }
 
 syscall_phase() {
     phase "syscall"
-    stress-ng --syscall "$CPU_WORKERS" --timeout "${DURATION}s" --metrics-brief
+
+    stress-ng \
+        --syscall "$CPU_WORKERS" \
+        --timeout "${DURATION}s" \
+        --metrics-brief
 }
 
 for ((i=1; i<=ROUNDS; i++)); do
-    echo "Round $i/$ROUNDS"
+    echo -en $(date +"%s%6N") "Round $i/$ROUNDS"
+    echo
 
     if should_run "$RUN_CPU"; then
         cpu_phase
@@ -288,4 +299,5 @@ for ((i=1; i<=ROUNDS; i++)); do
 done
 
 echo
-echo "Benchmark complete."
+echo -en $(date +"%s%6N") "Benchmark complete."
+echo
