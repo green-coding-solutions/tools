@@ -5,7 +5,11 @@ usage() {
     cat <<'USAGE'
 Usage: ./benchmark.sh [options]
 
-Runs a mixed workload to exercise CPU, memory, disk, network, and wakeups.
+Runs a mixed workload to exercise CPU, memory, disk, network, wakeups,
+syscalls, and idle phases.
+
+By default, all phases are run. If any individual phase switch is specified,
+only the selected phases are run.
 
 Options:
   --duration SEC        seconds per phase / sub-phase (default: 20)
@@ -16,10 +20,20 @@ Options:
   --cpu-workers N       CPU worker processes (default: nproc)
   --wakeup-threads N    wakeup threads (default: nproc)
   --net-url URL         download URL for network phase
-  --cpu-only            end benchmark after the CPU workload
+
+Phase selection:
+  --cpu                 run CPU phase
+  --memory              run memory phases
+  --disk                run disk phases
+  --network             run network phase
+  --idle                run idle phase
+  --wakeups             run wakeups phase
+  --syscall             run syscall phase
+
   -h, --help            show this help
 
 Notes:
+  - If no phase switches are specified, all phases are run.
   - For real disk IO, set --tmpdir to a disk-backed path (not tmpfs).
   - Network phase downloads from the internet; ensure you have connectivity.
 USAGE
@@ -27,7 +41,6 @@ USAGE
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
-CPU_ONLY=false
 DURATION=20
 ROUNDS=1
 TMPDIR="/tmp/procpower-bench"
@@ -36,6 +49,23 @@ MEM_MB=512
 CPU_WORKERS="$(nproc)"
 WAKEUP_THREADS="$(nproc)"
 NET_URL="https://nbg1-speed.hetzner.com/100MB.bin"
+
+# --all is implied unless any phase switch is explicitly selected
+RUN_ALL=true
+
+RUN_CPU=false
+RUN_MEMORY=false
+RUN_DISK=false
+RUN_NETWORK=false
+RUN_IDLE=false
+RUN_WAKEUPS=false
+RUN_SYSCALL=false
+
+enable_selective_mode() {
+    if $RUN_ALL; then
+        RUN_ALL=false
+    fi
+}
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -47,11 +77,71 @@ while [[ $# -gt 0 ]]; do
         --cpu-workers) CPU_WORKERS="$2"; shift 2 ;;
         --wakeup-threads) WAKEUP_THREADS="$2"; shift 2 ;;
         --net-url) NET_URL="$2"; shift 2 ;;
-        --cpu-only) CPU_ONLY=true; shift ;;
-        -h|--help) usage; exit 0 ;;
-        *) echo "Unknown arg: $1" >&2; usage; exit 1 ;;
+
+        --cpu)
+            enable_selective_mode
+            RUN_CPU=true
+            shift
+            ;;
+
+        --memory)
+            enable_selective_mode
+            RUN_MEMORY=true
+            shift
+            ;;
+
+        --disk)
+            enable_selective_mode
+            RUN_DISK=true
+            shift
+            ;;
+
+        --network)
+            enable_selective_mode
+            RUN_NETWORK=true
+            shift
+            ;;
+
+        --idle)
+            enable_selective_mode
+            RUN_IDLE=true
+            shift
+            ;;
+
+        --wakeups)
+            enable_selective_mode
+            RUN_WAKEUPS=true
+            shift
+            ;;
+
+        --syscall)
+            enable_selective_mode
+            RUN_SYSCALL=true
+            shift
+            ;;
+
+        -h|--help)
+            usage
+            exit 0
+            ;;
+
+        *)
+            echo "Unknown arg: $1" >&2
+            usage
+            exit 1
+            ;;
     esac
 done
+
+should_run() {
+    local flag="$1"
+
+    if $RUN_ALL; then
+        return 0
+    fi
+
+    "$flag"
+}
 
 if ! have timeout; then
     echo "timeout not found; install coreutils." >&2
@@ -68,14 +158,12 @@ trap cleanup EXIT
 
 trap 'echo "Aborted."; pkill -P $$; exit 1' INT
 
-
 phase() {
     echo
     echo "== $1 =="
 }
 
 run_timeout() {
-    # timeout exits 124 on expected time limit; don't treat as failure
     timeout "$@" || {
         status=$?
         if [[ $status -ne 124 ]]; then
@@ -99,8 +187,6 @@ cpu_phase() {
     done
 }
 
-# VM is more unstable and thus shows strongly varying energy on the DRAM.
-# Good because it is quite unpredictable
 mem_phase_vm() {
     phase "memory VM"
     stress-ng --vm 1 --vm-bytes "${MEM_MB}M" --timeout "${DURATION}s" --metrics-brief
@@ -109,7 +195,6 @@ mem_phase_vm() {
 
 }
 
-# stream is more stable and allows to stress the memory to it fullest
 mem_phase_stream() {
     phase "memory stream"
     stress-ng --stream 1 --vm-bytes "${MEM_MB}M" --timeout "${DURATION}s" --metrics-brief
@@ -169,19 +254,36 @@ syscall_phase() {
 
 for ((i=1; i<=ROUNDS; i++)); do
     echo "Round $i/$ROUNDS"
-    cpu_phase
-    if $CPU_ONLY; then
-        echo "Aborting after CPU phase (--cpu-only)"
-        continue
+
+    if should_run "$RUN_CPU"; then
+        cpu_phase
     fi
-    mem_phase_vm
-    mem_phase_stream
-    disk_write_phase
-    disk_read_phase
-    net_phase
-    idle_phase
-    wakeups_phase
-    syscall_phase
+
+    if should_run "$RUN_MEMORY"; then
+        mem_phase_vm
+        mem_phase_stream
+    fi
+
+    if should_run "$RUN_DISK"; then
+        disk_write_phase
+        disk_read_phase
+    fi
+
+    if should_run "$RUN_NETWORK"; then
+        net_phase
+    fi
+
+    if should_run "$RUN_IDLE"; then
+        idle_phase
+    fi
+
+    if should_run "$RUN_WAKEUPS"; then
+        wakeups_phase
+    fi
+
+    if should_run "$RUN_SYSCALL"; then
+        syscall_phase
+    fi
 done
 
 echo
