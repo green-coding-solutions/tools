@@ -210,7 +210,7 @@ disk_write_phase() {
     phase "disk write"
     local count=$((FILE_MB / 4))
     if (( count < 1 )); then count=1; fi
-    run_timeout "${DURATION}s" bash -c "while :; do dd if=/dev/zero of='$IO_FILE' bs=4M count=$count conv=fdatasync status=none; done"
+    run_timeout "${DURATION}s" bash -ceu "while :; do dd if=/dev/zero of='$IO_FILE' bs=4M count=$count conv=fdatasync status=none; done"
 }
 
 disk_read_phase() {
@@ -222,17 +222,17 @@ disk_read_phase() {
     fi
     local count=$((FILE_MB / 4))
     if (( count < 1 )); then count=1; fi
-    run_timeout "${DURATION}s" bash -c "while :; do dd if='$IO_FILE' of=/dev/null bs=4M count=$count status=none; done"
+    run_timeout "${DURATION}s" bash -ceu "while :; do dd if='$IO_FILE' of=/dev/null bs=4M count=$count status=none; done"
 }
 
 net_phase() {
     phase "network (remote download)"
     if have curl; then
-        run_timeout "${DURATION}s" bash -c "while :; do curl -sSfL --output /dev/null '${NET_URL}'; done"
+        run_timeout "${DURATION}s" bash -ceu "while :; do curl -sSfL --output /dev/null '${NET_URL}'; done"
         return
     fi
     if have wget; then
-        run_timeout "${DURATION}s" bash -c "while :; do wget -q -O /dev/null '${NET_URL}'; done"
+        run_timeout "${DURATION}s" bash -ceu "while :; do wget -q -O /dev/null '${NET_URL}'; done"
         return
     fi
 
