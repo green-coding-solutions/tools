@@ -164,6 +164,7 @@ phase() {
 }
 
 run_timeout() {
+    # timeout exits 124 on expected time limit; don't treat as failure
     timeout "$@" || {
         status=$?
         if [[ $status -ne 124 ]]; then
