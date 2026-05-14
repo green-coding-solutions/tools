@@ -20,6 +20,7 @@ Options:
   --cpu-workers N       CPU worker processes (default: nproc)
   --wakeup-threads N    wakeup threads (default: nproc)
   --net-url URL         download URL for network phase
+  --syscall-method      defaults to all. To make it more random you can use fast75
 
 Phase selection:
   --cpu                 run CPU phase
@@ -47,6 +48,7 @@ TMPDIR="/tmp/procpower-bench"
 FILE_MB=512
 MEM_MB=2096
 CPU_WORKERS="$(nproc)"
+SYSCALL_METHOD='all'
 WAKEUP_THREADS="$(nproc)"
 NET_URL="https://nbg1-speed.hetzner.com/100MB.bin"
 
@@ -77,6 +79,7 @@ while [[ $# -gt 0 ]]; do
         --cpu-workers) CPU_WORKERS="$2"; shift 2 ;;
         --wakeup-threads) WAKEUP_THREADS="$2"; shift 2 ;;
         --net-url) NET_URL="$2"; shift 2 ;;
+        --syscall-method) SYSCALL_METHOD="$2"; shift 2 ;;
 
         --cpu)
             enable_selective_mode
@@ -259,6 +262,7 @@ syscall_phase() {
 
     stress-ng \
         --syscall "$CPU_WORKERS" \
+        --syscall-method "$SYSCALL_METHOD" \
         --timeout "${DURATION}s" \
         --metrics-brief
 }
